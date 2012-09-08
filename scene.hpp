@@ -30,14 +30,11 @@ public:
   static unsigned long long int num;
   // コンストラクタ
   Scene(){};
-  void set_bgcolor(UINT8 r, UINT8 g, UINT8 b){
-    bgcolor.red   = r;
-    bgcolor.green = g;
-    bgcolor.blue  = b;
-  }
-  void add_light(Light* m){light.push_back(m);};
+  void set_bgcolor(UINT8 r, UINT8 g, UINT8 b);
+  void add_light(Light* m);
   list<Polygon3*> tree_traversal(Vector3 view_vector);
   void load_ply(string filename);
+  static list<string> split(string str, string delim);
 };
 
 #endif // _INC_SCENE

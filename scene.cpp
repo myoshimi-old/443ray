@@ -5,7 +5,18 @@
 #include "443ray.hpp"
 #include "scene.hpp"
 
-list<string> split(string str, string delim){
+
+void Scene::add_light(Light* m){
+  light.push_back(m);
+};
+
+void Scene::set_bgcolor(UINT8 r, UINT8 g, UINT8 b){
+  bgcolor.red   = r;
+  bgcolor.green = g;
+  bgcolor.blue  = b;
+};
+
+list<string> Scene::split(string str, string delim){
   list<string> result;
   int cutAt;
 
@@ -82,7 +93,7 @@ int Scene::partition(int s, int e, int f){
   REAL pivot;
   AABB3* t;
 
-
+  /*
   if(f % 3 == 0){
     pivot = bvolume[s]->max.x;
   }
@@ -91,6 +102,17 @@ int Scene::partition(int s, int e, int f){
   }
   else{
     pivot = bvolume[s]->max.z;
+  }
+  */
+
+  if(f % 3 == 0){
+    pivot = (bvolume[s]->max.x + bvolume[e-1]->max.x) / 2.0;
+  }
+  else if(f % 3 == 1){
+    pivot = (bvolume[s]->max.y + bvolume[e-1]->max.y) / 2.0;
+  }
+  else{
+    pivot = (bvolume[s]->max.z + bvolume[e-1]->max.z) / 2.0;
   }
 
   //pivot = bvolume[s]->max.x;
@@ -203,9 +225,6 @@ AABB3* Scene::division(int s, int e, int f){
   return ret;
 };
 
-
-
-
 void Scene::build_bounding_box(){
   int i;
   AABB3 v;
@@ -243,7 +262,7 @@ void Scene::load_ply(string filename){
 
   ifs.open(filename.c_str());
   while(getline(ifs, s)){
-    slist = split(s, string(" "));
+    slist = Scene::split(s, string(" "));
 
     if(header_flag == 1){
       if(slist.front() == "comment"){

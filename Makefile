@@ -1,28 +1,32 @@
 #!/bin/make
+
+TARGET = ./main$(EXEEXT)
+SRCS = main.cpp color.cpp vector3.cpp polygon3.cpp aabb3.cpp light.cpp screen.cpp scene.cpp
 CXX = g++
-CXXFLAGS = -O3 -Wall
+CXXFLAGS = -O3 -Wall -g
 
 OPENCVINC = `pkg-config --cflags opencv`
 OPENCVLIB = `pkg-config --libs opencv`
 
 LDFLAGS  = -fopenmp
 
-OBJS = main
+OBJS = $(SRCS:.cpp=.o)
 
 .PHONY: all clean
-.SUFFIXES: .c .cpp .o
+.SUFFIXES: .cpp .o
 
-all:
-	$(CXX) $(CXXFLAGS) -o color.o -c color.cpp
-	$(CXX) $(CXXFLAGS) -o vector3.o -c vector3.cpp
-	$(CXX) $(CXXFLAGS) -o polygon3.o -c polygon3.cpp
-	$(CXX) $(CXXFLAGS) -o aabb3.o -c aabb3.cpp
-	$(CXX) $(CXXFLAGS) -o screen.o -c screen.cpp $(OPENCVINC)
-	$(CXX) $(CXXFLAGS) -o scene.o -c scene.cpp
-	$(CXX) $(CXXFLAGS) -o main.o -c main.cpp $(LDFLAGS)
-	$(CXX) $(CXXFLAGS) -o main main.o color.o vector3.o polygon3.o aabb3.o screen.o scene.o $(OPENCVLIB) $(LDFLAGS)
-	rm -rf *.o
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS) $(OPENCVLIB)
+
+.cpp.o:
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(OPENCVINC) -c $<
+
+depend:
+	$(CXX) -MM $(INCLUDE) $(CXXFLAGS) $(SRCS) > dependencies
 
 clean:
-	rm -rf *.o
-	rm -rf main
+	rm -rf $(OBJS) $(TARGET)
+
+
