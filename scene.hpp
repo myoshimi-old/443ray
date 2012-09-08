@@ -3,6 +3,7 @@
 
 #include<vector>
 #include<list>
+#include<omp.h>
 
 #include "vector3.hpp"
 #include "polygon3.hpp"
@@ -22,14 +23,16 @@ public:
   int vertex;
   int face;
 
+  omp_lock_t lock_num;
+  unsigned long long int num;
+  // コンストラクタ
+  Scene();
+  ~Scene();
+
   void build_bounding_box();
   AABB3* division(int s, int e, int f);
   int partition(int s, int e, int f);
   void qsort(int s, int e, int f);
-  void bvolume_sort(int s, int e, int f);
-  static unsigned long long int num;
-  // コンストラクタ
-  Scene(){};
   void set_bgcolor(UINT8 r, UINT8 g, UINT8 b);
   void add_light(Light* m);
   list<Polygon3*> tree_traversal(Vector3 view_vector);

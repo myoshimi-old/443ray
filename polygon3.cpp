@@ -8,6 +8,9 @@
 
 using namespace std;
 
+#define MIN(x,y) ((x)<(y))? (x):(y)
+#define MAX(x,y) ((x)>(y))? (x):(y)
+
 // 物体定義の抽象クラス
 /*
 class Model{
@@ -27,31 +30,15 @@ Polygon3::Polygon3(Color* set_color,
                    Vector3* set_v2,
                    Vector3* set_v3){
   color = *set_color;
-  v1 = *set_v1;
-  v2 = *set_v2;
-  v3 = *set_v3;
+  v1 = *set_v1; v2 = *set_v2; v3 = *set_v3;
 };
-
-bool Polygon3::cmp(Polygon3* a, Polygon3* b){
-  bool ret=false;
-  if(a->v1.x < b->v1.x){
-    ret = true;
-  }
-  return ret;
-}
 
 Vector3 Polygon3::get_max(){
   Vector3 ret;
   REAL x, y, z;
-  x = v1.x;
-  if(x < v2.x) x = v2.x;
-  if(x < v3.x) x = v3.x;
-  y = v1.y;
-  if(y < v2.y) y = v2.y;
-  if(y < v3.y) y = v3.y;
-  z = v1.z;
-  if(z < v2.z) z = v2.z;
-  if(z < v3.z) z = v3.z;
+  x = MAX(v3.x, MAX(v1.x, v2.x));
+  y = MAX(v3.y, MAX(v1.y, v2.y));
+  z = MAX(v3.z, MAX(v1.z, v2.z));
   ret.set_vector(x, y, z);
   return ret;
 };
@@ -59,15 +46,9 @@ Vector3 Polygon3::get_max(){
 Vector3 Polygon3::get_min(){
   Vector3 ret;
   REAL x, y, z;
-  x = v1.x;
-  if(x > v2.x) x = v2.x;
-  if(x > v3.x) x = v3.x;
-  y = v1.y;
-  if(y > v2.y) y = v2.y;
-  if(y > v3.y) y = v3.y;
-  z = v1.z;
-  if(z > v2.z) z = v2.z;
-  if(z > v3.z) z = v3.z;
+  x = MIN(v3.x, MIN(v1.x, v2.x));
+  y = MIN(v3.y, MIN(v1.y, v2.y));
+  z = MIN(v3.z, MIN(v1.z, v2.z));
   ret.set_vector(x, y, z);
   return ret;
 };

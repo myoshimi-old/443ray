@@ -3,7 +3,7 @@
 TARGET = ./main$(EXEEXT)
 SRCS = main.cpp color.cpp vector3.cpp polygon3.cpp aabb3.cpp light.cpp screen.cpp scene.cpp
 CXX = g++
-CXXFLAGS = -O3 -Wall -g
+CXXFLAGS = -O3 -Wall # -g
 
 OPENCVINC = `pkg-config --cflags opencv`
 OPENCVLIB = `pkg-config --libs opencv`

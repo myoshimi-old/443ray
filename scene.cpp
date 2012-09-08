@@ -1,10 +1,24 @@
+#include<iostream>
 #include<vector>
 #include<list>
 #include<fstream>
+#include<omp.h>
 
 #include "443ray.hpp"
 #include "scene.hpp"
 
+Scene::Scene(){
+#ifdef _OPENMP
+  omp_init_lock(&lock_num);
+#endif
+  num = 0;
+};
+
+Scene::~Scene(){
+#ifdef _OPENMP
+  omp_destroy_lock(&lock_num);
+#endif
+};
 
 void Scene::add_light(Light* m){
   light.push_back(m);
@@ -33,6 +47,7 @@ list<string> Scene::split(string str, string delim){
 }
 
 list<Polygon3*> Scene::tree_traversal(Vector3 view_vector){
+  int tnum;
   AABB3* tree_ptr;
   list<AABB3*> traverse_list; // トラバース対象ノードのリスト
   list<Polygon3*> model_list; // 交差判定対象モデルのリスト
@@ -42,7 +57,9 @@ list<Polygon3*> Scene::tree_traversal(Vector3 view_vector){
   traverse_list.clear();
   model_list.clear();
 
-  num++;
+  tnum = 0;
+
+  tnum++;
   if(tree_ptr->intersect(viewpoint, view_vector)){
     traverse_list.push_back(tree_ptr);
   }
@@ -63,7 +80,7 @@ list<Polygon3*> Scene::tree_traversal(Vector3 view_vector){
       // 右の子(box)が存在する場合の処理
       if(tree_ptr->right != NULL){
         // 右の子と交差判定
-        num++;
+        tnum++;
         if(tree_ptr->right->intersect(viewpoint, view_vector)){
           // cout << "add right" << endl;
           traverse_list.push_back(tree_ptr->right);
@@ -72,7 +89,7 @@ list<Polygon3*> Scene::tree_traversal(Vector3 view_vector){
 
       if(tree_ptr->left  != NULL){
         // 左の子と交差判定
-        num++;
+        tnum++;
         if(tree_ptr->left->intersect(viewpoint, view_vector)){
           // cout << "add left" << endl;
           traverse_list.push_back(tree_ptr->left);
@@ -81,17 +98,24 @@ list<Polygon3*> Scene::tree_traversal(Vector3 view_vector){
     }
   }
 
+  // cout << tnum << endl;
+#ifdef _OPENMP
+  omp_set_lock(&lock_num);
+  num += tnum;
+  omp_unset_lock(&lock_num);
+#else
+  num += tnum;
+#endif
   // cout << "box intersect : " << num << endl;
 
   return model_list;
 }
 
-
-
 int Scene::partition(int s, int e, int f){
   int right, left;
   REAL pivot;
   AABB3* t;
+  Vector3 v1, v2;
 
   /*
   if(f % 3 == 0){
@@ -106,14 +130,31 @@ int Scene::partition(int s, int e, int f){
   */
 
   if(f % 3 == 0){
-    pivot = (bvolume[s]->max.x + bvolume[e-1]->max.x) / 2.0;
+    // pivot = (bvolume[s]->max.x + bvolume[e-1]->max.x) / 2.0;
+    pivot = bvolume[(e-s)/2+s]->max.x;
   }
   else if(f % 3 == 1){
-    pivot = (bvolume[s]->max.y + bvolume[e-1]->max.y) / 2.0;
+    // pivot = (bvolume[s]->max.y + bvolume[e-1]->max.y) / 2.0;
+    pivot = bvolume[(e-s)/2+s]->max.y;
   }
   else{
-    pivot = (bvolume[s]->max.z + bvolume[e-1]->max.z) / 2.0;
+    // pivot = (bvolume[s]->max.z + bvolume[e-1]->max.z) / 2.0;
+    pivot = bvolume[(e-s)/2+s]->max.z;
   }
+
+  /*
+  v1 = bvolume[s]->max   - bvolume[s]->min;
+  v2 = bvolume[e-1]->max - bvolume[e-1]->min;
+  if(f % 3 == 0){
+    pivot = (v2.x + v1.x) / 2.0;
+  }
+  else if(f % 3 == 1){
+    pivot = (v2.y + v1.y) / 2.0;
+  }
+  else{
+    pivot = (v2.z + v1.z) / 2.0;
+  }
+  */
 
   //pivot = bvolume[s]->max.x;
 
@@ -137,8 +178,6 @@ int Scene::partition(int s, int e, int f){
           (right >= s + 1 && bvolume[right]->max.z >= pivot && f % 3 == 2))
       // while(right >= s + 1 && bvolume[right]->max.x >= pivot)
       right--;
-    // cout << "     left[" << left << "] : " << bvolume[left]->max.x << "  "
-    // << "right[" << right << "] : "  << bvolume[right]->max.x << endl;
 
     if(left >= right) break;
     t = bvolume[left];
@@ -162,10 +201,8 @@ void Scene::qsort(int s, int e, int f){
   k = partition(s, e, f);
 
   // cout << "qsort[" << f + 1 << "] (" << s << ", " << k << ")" << endl;
-  // qsort(s, k, f+1);
   qsort(s, k, f);
   //  cout << "qsort[" << f + 1 << "] (" << k << ", " << e << ")" << endl;
-  // qsort(k+1, e, f+1);
   qsort(k+1, e, f);
 }
 
@@ -185,23 +222,6 @@ AABB3* Scene::division(int s, int e, int f){
   d = e - s;
 
   qsort(s, e, f);
-
-  // バブルソート
-  /*
-  for(i=s;i<e;i++){
-    for(j=i+1;j<e;j++){
-      if(f % 3 == 0) x = (bvolume[j-1]->max.x > bvolume[j]->max.x);
-      if(f % 3 == 1) x = (bvolume[j-1]->max.y > bvolume[j]->max.y);
-      if(f % 3 == 2) x = (bvolume[j-1]->max.z > bvolume[j]->max.z);
-
-      if(x){
-        t = bvolume[j];
-        bvolume[j] = bvolume[j-1];
-        bvolume[j-1] = t;
-      }
-    }
-  }
-  */
 
   if(d == 2 || d == 1){
     // s , s+1

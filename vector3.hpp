@@ -11,6 +11,7 @@ public:
   Vector3(REAL set_x, REAL set_y, REAL set_z);
   // メソッド
   void set_vector(REAL set_x, REAL set_y, REAL set_z);
+  void set_vector(Vector3 v);
   void normalize();
   void show();
   // +演算子の再定義: ベクトル同士の加算

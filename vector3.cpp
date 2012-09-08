@@ -6,23 +6,22 @@
 using namespace std;
 
 Vector3::Vector3(REAL set_x, REAL set_y, REAL set_z){
-  x = set_x;
-  y = set_y;
-  z = set_z;
+  x = set_x; y = set_y; z = set_z;
 };
 
 void Vector3::set_vector(REAL set_x, REAL set_y, REAL set_z){
-  x = set_x;
-  y = set_y;
-  z = set_z;
+  x = set_x; y = set_y; z = set_z;
 };
+
+void Vector3::set_vector(Vector3 v){
+  x = v.x; y = v.y; z = v.z;
+};
+
 
 void Vector3::normalize(){
   REAL d;
   d = sqrt(x * x + y * y + z * z);
-  x /= d;
-  y /= d;
-  z /= d;
+  x /= d; y /= d; z /= d;
 };
 
 void Vector3::show(){

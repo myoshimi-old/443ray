@@ -4,6 +4,7 @@
 #include<fstream>
 #include<vector>
 #include<list>
+#include<omp.h>
 
 #include<sys/time.h>
 
@@ -19,6 +20,10 @@
 using namespace std;
 
 unsigned long long int pnum = 0;
+
+#ifdef _OPENMP
+omp_lock_t lock_pnum;
+#endif
 
 double get_dtime(void){
   struct timeval tv;
@@ -63,7 +68,7 @@ Color shading(Vector3 view_vector,
 };
 
 // view : スクリーンの画素位置へのベクトル
-Color intersect(Vector3 view, Scene scene){
+Color intersect(Vector3 view, Scene* scene){
   int m;
   REAL dv, t;
   Vector3 view_vector; // 視線(単位)ベクトル
@@ -71,17 +76,16 @@ Color intersect(Vector3 view, Scene scene){
   Color c;
   Polygon3* min_id;
   REAL min;
-  Vector3 tv, np, n;
-  Vector3 light;
+  Vector3 tv, np, n, light;
   list<Polygon3*> mlist;
   Polygon3* tm;
 
   // 視線(単位)ベクトルの計算
   dv = sqrt(view.x * view.x + view.y * view.y + view.z * view.z);
-  view_vector.set_vector(scene.viewpoint.x + view.x,
-                         scene.viewpoint.y + view.y,
-                         scene.viewpoint.z + (1.0 * dv));
-  view_vector = view_vector - scene.viewpoint;
+  view_vector.set_vector(scene->viewpoint.x + view.x,
+                         scene->viewpoint.y + view.y,
+                         scene->viewpoint.z + (1.0 * dv));
+  view_vector = view_vector - scene->viewpoint;
   view_vector.normalize();
 
   // バウンディングボックスの探索
@@ -89,24 +93,30 @@ Color intersect(Vector3 view, Scene scene){
   // tree[0].node.x
   xlist.empty();
 
-  mlist = scene.tree_traversal(view_vector);
+  mlist = scene->tree_traversal(view_vector);
 
   // cout << "Polygon3 intersect : " << (int)mlist.size() << endl;
-
   // 交差判定
   for(m = 0; m<(int)mlist.size(); m++){
     tm = mlist.front();
-    pnum++;
-    t = tm->intersect(scene.viewpoint, view_vector);
+    t = tm->intersect(scene->viewpoint, view_vector);
     if(t < HUGE_VAL){
       xlist.push_back(pair<Polygon3*, double>(tm, t));
     }
     mlist.pop_front();
     mlist.push_back(tm);
   }
+
+#ifdef _OPENMP
+  omp_set_lock(&lock_pnum);
+  pnum+=(int)mlist.size();
+  omp_unset_lock(&lock_pnum);
+#else
+  pnum+=(int)mlist.size();
+#endif
   /*
-  for(m = 0; m<(int)scene.model.size(); m++){
-    t = scene.model[m]->intersect(scene.viewpoint, view_vector);
+  for(m = 0; m<(int)scene->model.size(); m++){
+    t = scene->model[m]->intersect(scene->viewpoint, view_vector);
     if(t < HUGE_VAL){
       xlist.push_back(pair<int, double>(m, t));
     }
@@ -114,9 +124,9 @@ Color intersect(Vector3 view, Scene scene){
   */
 
   if(xlist.size() == 0){
-    c.set_color(scene.bgcolor.red,
-                scene.bgcolor.green,
-                scene.bgcolor.blue);
+    c.set_color(scene->bgcolor.red,
+                scene->bgcolor.green,
+                scene->bgcolor.blue);
   }
   else{
     // 直近のモデルを探索
@@ -131,12 +141,12 @@ Color intersect(Vector3 view, Scene scene){
     // 視線ベクトルをスカラー倍したベクトル
     tv = view_vector * min;
     // 交点(視点から交点へのベクトル)
-    np = scene.viewpoint + tv;
+    np = scene->viewpoint + tv;
     // 物体の法線ベクトル(単位ベクトル)の計算
-    // n  = scene.model[min_id]->get_normal_vector(np);
+    // n  = scene->model[min_id]->get_normal_vector(np);
     n  = min_id->get_normal_vector(np);
     // 光線ベクトル
-    light = np - scene.light[0]->get_vector();
+    light = np - scene->light[0]->get_vector();
     light.normalize();
     c = shading(view_vector,
                 light, n, min_id->get_color(),
@@ -145,7 +155,6 @@ Color intersect(Vector3 view, Scene scene){
   return c;
 };
 
-unsigned long long int Scene::num = 0;
 
 int main(int argc, char** argv){
   int x, y;
@@ -162,7 +171,7 @@ int main(int argc, char** argv){
   double d0, d1, d2, d3;
 
   if(argc != 5){
-    cout << argv[0] << " [width] [height] [.ply file] [.ppm file]" << endl;
+    cout << argv[0] << " [width] [height] [file.ply] [file.{ppm,png}]" << endl;
     exit(1);
   }
 
@@ -196,9 +205,7 @@ int main(int argc, char** argv){
   }
 
   Vector3 viewpoint;   // 視点ベクトル
-  viewpoint.set_vector(scene.viewpoint.x,
-                       scene.viewpoint.y,
-                       scene.viewpoint.z);
+  viewpoint.set_vector(scene.viewpoint);
 
   cout << "ply, " << argv[3] << endl;
   cout << "width  : ,     " << screen.width  << endl;
@@ -214,12 +221,16 @@ int main(int argc, char** argv){
   d1 = get_dtime();
 
 #ifdef _OPENMP
+  omp_init_lock(&lock_pnum);
+#endif
+
+#ifdef _OPENMP
 #pragma omp parallel for private(x)
 #endif
   for(y=0;y<(int)screen.height;y++){
     for(x=0;x<(int)screen.width;x++){
       // cout << "(" << x << ", " << y << ")" << endl;
-      screen.pixel[sindex].set_color(intersect(view[sindex], scene));
+      screen.pixel[sindex].set_color(intersect(view[sindex], &scene));
     }
   }
 
@@ -229,13 +240,17 @@ int main(int argc, char** argv){
 
   d3 = get_dtime();
 
-  cout << "traversal, " << Scene::num << endl;
+  cout << "traversal, " << scene.num << endl;
   cout << "intersect, " << pnum << endl;
 
   cout << "Building VBH : ,     " << d1 - d0 << ", [sec]" << endl;
   cout << "Intersect    : ,     " << d2 - d1 << ", [sec]" << endl;
   cout << "Generation   : ,     " << d3 - d2 << ", [sec]" << endl;
   cout << "Total        : ,     " << d3 - d0 << ", [sec]" << endl;
+
+#ifdef _OPENMP
+  omp_destroy_lock(&lock_pnum);
+#endif
 
   return 0;
 }
