@@ -177,19 +177,17 @@ int main(int argc, char** argv){
 
   screen.set_screen(atoi(argv[1]), atoi(argv[2]));
   scene.set_bgcolor(0, 0, 0);
-  // scene.viewpoint.set_vector(0.3, -0.2, -2.85); // bunny背面
-  // scene.viewpoint.set_vector(-0.02, 0.145, 0.40); // 視点位置
-  //scene.add_light(new Light(new Vector3(600.0, 600.0, -600.0)));
-  scene.add_light(new Light(new Vector3(60.0, 30.0, 60.0)));
+  scene.add_light(new Light(new Vector3(60.0, 30.0, 60.0))); // 照明位置
 
   scene.load_ply(argv[3]);
 
   // 縦横比
   rw = 0.16;
   rh = rw * screen.height / screen.width;
-  sl.set_vector(rw, rh, 0.6);
+  sl.set_vector(rw, rh, 0.6); // スクリーン位置
   // ウサギ
   //scene.viewpoint.set_vector(-0.015, 0.104, 0.80); // 視点位置
+  // scene.viewpoint.set_vector(-0.02, 0.145, 0.40); // 視点位置
   // 仏像
   scene.viewpoint.set_vector(-0.015, 0.140, 1.10); // 視点位置
 
@@ -243,7 +241,7 @@ int main(int argc, char** argv){
   cout << "traversal, " << scene.num << endl;
   cout << "intersect, " << pnum << endl;
 
-  cout << "Building VBH : ,     " << d1 - d0 << ", [sec]" << endl;
+  cout << "Building BVH : ,     " << d1 - d0 << ", [sec]" << endl;
   cout << "Intersect    : ,     " << d2 - d1 << ", [sec]" << endl;
   cout << "Generation   : ,     " << d3 - d2 << ", [sec]" << endl;
   cout << "Total        : ,     " << d3 - d0 << ", [sec]" << endl;
