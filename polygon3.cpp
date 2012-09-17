@@ -8,8 +8,6 @@
 
 using namespace std;
 
-#define MIN(x,y) ((x)<(y))? (x):(y)
-#define MAX(x,y) ((x)>(y))? (x):(y)
 
 // 物体定義の抽象クラス
 /*
@@ -36,9 +34,14 @@ Polygon3::Polygon3(Color* set_color,
 Vector3 Polygon3::get_max(){
   Vector3 ret;
   REAL x, y, z;
+  /*
   x = MAX(v3.x, MAX(v1.x, v2.x));
   y = MAX(v3.y, MAX(v1.y, v2.y));
   z = MAX(v3.z, MAX(v1.z, v2.z));
+  */
+  x = MAX3(v1.x, v2.x, v3.x);
+  y = MAX3(v1.y, v2.y, v3.y);
+  z = MAX3(v1.z, v2.z, v3.z);
   ret.set_vector(x, y, z);
   return ret;
 };
@@ -46,9 +49,14 @@ Vector3 Polygon3::get_max(){
 Vector3 Polygon3::get_min(){
   Vector3 ret;
   REAL x, y, z;
+  /*
   x = MIN(v3.x, MIN(v1.x, v2.x));
   y = MIN(v3.y, MIN(v1.y, v2.y));
   z = MIN(v3.z, MIN(v1.z, v2.z));
+  */
+  x = MIN3(v1.x, v2.x, v3.x);
+  y = MIN3(v1.y, v2.y, v3.y);
+  z = MIN3(v1.z, v2.z, v3.z);
   ret.set_vector(x, y, z);
   return ret;
 };

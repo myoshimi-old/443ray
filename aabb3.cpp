@@ -36,6 +36,14 @@ void AABB3::empty(){
   min.set_vector(HUGE_VAL, HUGE_VAL, HUGE_VAL);
 };
 
+Vector3 AABB3::get_gravity_center(){
+  Vector3 v;
+  v.x = (max.x + min.x) / 2.0;
+  v.y = (max.y + min.y) / 2.0;
+  v.z = (max.z + min.z) / 2.0;
+  return v;
+};
+
 void AABB3::add(Vector3 p){
   if(p.x < min.x) min.x = p.x;
   if(p.x > max.x) max.x = p.x;
@@ -69,14 +77,20 @@ bool AABB3::intersect(Vector3 viewpoint, Vector3 view_vector){
   if(tzs > tze){tmp = tzs; tzs = tze; tze = tmp;}
 
   // 最遠の入射スラブ
+  tin = MAX3(txs, tys, tzs);
+  /*
   tin = txs;
   if(tin < tys) tin = tys;
   if(tin < tzs) tin = tzs;
+  */
 
   // 最近の出射スラブ
+  tout = MIN3(txe, tye, tze);
+  /*
   tout = txe;
   if(tout > tye) tout = tye;
   if(tout > tze) tout = tze;
+  */
 
   judge = tout - tin;
 

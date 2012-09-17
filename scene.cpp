@@ -3,6 +3,7 @@
 #include<list>
 #include<fstream>
 #include<omp.h>
+#include<cmath>
 
 #include "443ray.hpp"
 #include "scene.hpp"
@@ -10,13 +11,16 @@
 Scene::Scene(){
 #ifdef _OPENMP
   omp_init_lock(&lock_num);
+  omp_init_lock(&lock_pnum);
 #endif
-  num = 0;
+  num  = 0;
+  pnum = 0;
 };
 
 Scene::~Scene(){
 #ifdef _OPENMP
   omp_destroy_lock(&lock_num);
+  omp_destroy_lock(&lock_pnum);
 #endif
 };
 
@@ -68,7 +72,6 @@ list<Polygon3*> Scene::tree_traversal(Vector3 view_vector){
     traverse_list.pop_front();
 
     // cout << traverse_list.size() << endl;
-
     // 葉だったら(モデルがくっついていたら)
     if(tree_ptr->node != NULL){
       // tree_ptr->node->max.show();
@@ -117,46 +120,24 @@ int Scene::partition(int s, int e, int f){
   AABB3* t;
   Vector3 v1, v2;
 
-  /*
   if(f % 3 == 0){
-    pivot = bvolume[s]->max.x;
+    //pivot = bvolume[(e-s)/2+s]->get_gravity_center().x;
+    pivot = (bvolume[(e-s)/2+s]->get_gravity_center().x
+             + bvolume[s]->get_gravity_center().x
+             + bvolume[e-1]->get_gravity_center().x) / 3.0;
   }
   else if(f % 3 == 1){
-    pivot = bvolume[s]->max.y;
+    // pivot = bvolume[(e-s)/2+s]->get_gravity_center().y;
+    pivot = (bvolume[(e-s)/2+s]->get_gravity_center().y
+             + bvolume[s]->get_gravity_center().y
+             + bvolume[e-1]->get_gravity_center().y) / 3.0;
   }
   else{
-    pivot = bvolume[s]->max.z;
+    // pivot = bvolume[(e-s)/2+s]->get_gravity_center().z;
+    pivot = (bvolume[(e-s)/2+s]->get_gravity_center().z
+             + bvolume[s]->get_gravity_center().z
+             + bvolume[e-1]->get_gravity_center().z) / 3.0;
   }
-  */
-
-  if(f % 3 == 0){
-    // pivot = (bvolume[s]->max.x + bvolume[e-1]->max.x) / 2.0;
-    pivot = bvolume[(e-s)/2+s]->max.x;
-  }
-  else if(f % 3 == 1){
-    // pivot = (bvolume[s]->max.y + bvolume[e-1]->max.y) / 2.0;
-    pivot = bvolume[(e-s)/2+s]->max.y;
-  }
-  else{
-    // pivot = (bvolume[s]->max.z + bvolume[e-1]->max.z) / 2.0;
-    pivot = bvolume[(e-s)/2+s]->max.z;
-  }
-
-  /*
-  v1 = bvolume[s]->max   - bvolume[s]->min;
-  v2 = bvolume[e-1]->max - bvolume[e-1]->min;
-  if(f % 3 == 0){
-    pivot = (v2.x + v1.x) / 2.0;
-  }
-  else if(f % 3 == 1){
-    pivot = (v2.y + v1.y) / 2.0;
-  }
-  else{
-    pivot = (v2.z + v1.z) / 2.0;
-  }
-  */
-
-  //pivot = bvolume[s]->max.x;
 
   left  = s;
   right = e - 1;
@@ -168,17 +149,43 @@ int Scene::partition(int s, int e, int f){
   */
 
   while(left < right){
+    if(f % 3 == 0){
+      while(left < e-1 && bvolume[left]->get_gravity_center().x < pivot)
+        left++;
+    }
+    else if(f % 3 == 1){
+      while(left < e-1 && bvolume[left]->get_gravity_center().y < pivot)
+        left++;
+    }
+    else{
+      while(left < e-1 && bvolume[left]->get_gravity_center().z < pivot)
+        left++;
+    }
+
+
+    if(f % 3 == 0){
+      while(right >= s+1 && bvolume[right]->get_gravity_center().x >= pivot)
+        right--;
+    }
+    else if(f % 3 == 1){
+      while(right >= s+1 && bvolume[right]->get_gravity_center().y >= pivot)
+        right--;
+    }
+    else{
+      while(right >= s+1 && bvolume[right]->get_gravity_center().z >= pivot)
+        right--;
+    }
+
+    /*
     while((left < e-1 && bvolume[left]->max.x < pivot && f % 3 == 0) ||
           (left < e-1 && bvolume[left]->max.y < pivot && f % 3 == 1) ||
           (left < e-1 && bvolume[left]->max.z < pivot && f % 3 == 2))
-      // while(left < e-1 && bvolume[left]->max.x < pivot)
       left++;
     while((right >= s + 1 && bvolume[right]->max.x >= pivot && f % 3 == 0) ||
           (right >= s + 1 && bvolume[right]->max.y >= pivot && f % 3 == 1) ||
           (right >= s + 1 && bvolume[right]->max.z >= pivot && f % 3 == 2))
-      // while(right >= s + 1 && bvolume[right]->max.x >= pivot)
       right--;
-
+    */
     if(left >= right) break;
     t = bvolume[left];
     bvolume[left] = bvolume[right];
@@ -280,6 +287,19 @@ void Scene::load_ply(string filename){
   face   = 0;
   vertex = 0;
 
+  /*
+  char buf[128];
+  FILE *fp;
+
+  fp = fopen(filename.c_str(), "r");
+  while(fgets(buf, 127, fp) != NULL){
+    buf[strlen(buf) -1] = '\0';
+    s = buf;
+    // ....
+  }
+  fclose(fp);
+  */
+
   ifs.open(filename.c_str());
   while(getline(ifs, s)){
     slist = Scene::split(s, string(" "));
@@ -342,3 +362,127 @@ void Scene::load_ply(string filename){
   //  cout << vertex << face << endl;
   ifs.close();
 }
+
+// view : スクリーンの画素位置へのベクトル
+Color Scene::intersect(Vector3 view){
+    int m;
+    REAL dv, t;
+    Vector3 view_vector; // 視線(単位)ベクトル
+    vector<pair<Polygon3*, double> > xlist; // 交差したモデルのリスト
+    Color c;
+    Polygon3* min_id;
+    REAL min;
+    Vector3 tv, np, n, light_v;
+    list<Polygon3*> mlist;
+    Polygon3* tm;
+
+    // 視線(単位)ベクトルの計算
+    dv = sqrt(view.x * view.x + view.y * view.y + view.z * view.z);
+    view_vector.set_vector(viewpoint.x + view.x,
+                           viewpoint.y + view.y,
+                           viewpoint.z + (1.0 * dv));
+    view_vector = view_vector - viewpoint;
+    view_vector.normalize();
+
+    // バウンディングボックスの探索
+    // ボックスの交差判定
+    // tree[0].node.x
+    xlist.empty();
+
+    mlist = tree_traversal(view_vector);
+
+    // cout << "Polygon3 intersect : " << (int)mlist.size() << endl;
+    // 交差判定
+    for(m = 0; m<(int)mlist.size(); m++){
+        tm = mlist.front();
+        t = tm->intersect(viewpoint, view_vector);
+        if(t < HUGE_VAL){
+            xlist.push_back(pair<Polygon3*, double>(tm, t));
+        }
+        mlist.pop_front();
+        mlist.push_back(tm);
+    }
+
+#ifdef _OPENMP
+    omp_set_lock(&lock_pnum);
+    pnum+=(int)mlist.size();
+    omp_unset_lock(&lock_pnum);
+#else
+    pnum+=(int)mlist.size();
+#endif
+    /*
+      for(m = 0; m<(int)scene->model.size(); m++){
+      t = scene->model[m]->intersect(scene->viewpoint, view_vector);
+      if(t < HUGE_VAL){
+      xlist.push_back(pair<int, double>(m, t));
+      }
+      }
+    */
+
+    if(xlist.size() == 0){
+        c.set_color(bgcolor.red,
+                    bgcolor.green,
+                    bgcolor.blue);
+    }
+    else{
+        // 直近のモデルを探索
+        min_id = xlist[0].first;
+        min    = xlist[0].second;
+        for(m = 0; m<(int)xlist.size();m++){
+            if(min > xlist[m].second){
+                min_id = xlist[m].first;
+                min = xlist[m].second;
+            }
+        }
+        // 視線ベクトルをスカラー倍したベクトル
+        tv = view_vector * min;
+        // 交点(視点から交点へのベクトル)
+        np = viewpoint + tv;
+        // 物体の法線ベクトル(単位ベクトル)の計算
+        // n  = scene->model[min_id]->get_normal_vector(np);
+        n  = min_id->get_normal_vector(np);
+        // 光線ベクトル
+        light_v = np - light[0]->get_vector();
+        light_v.normalize();
+        c = shading(view_vector,
+                    light_v, n, min_id->get_color(),
+                    0.5);
+    }
+    return c;
+};
+
+Color Scene::shading(Vector3 view_vector,
+              Vector3 light,
+              Vector3 n,
+              Color color,
+              double s){
+    REAL kd = 0.7, ks = 0.7, ke = 0.3;
+    Color c, c0, c1;
+    REAL ln, lv, nv;
+    REAL cos_alpha, cos_beta, cos_beta_pow;
+    REAL h;
+    // c.set_color(200, 200, 200);
+
+    ln = Vector3::dot(light, n);
+    lv = Vector3::dot(light, view_vector);
+    nv = Vector3::dot(n, view_vector);
+
+    cos_alpha = ln * (-1.0);
+    if(cos_alpha < 0.0){
+        cos_alpha = 0.0;
+    }
+
+    cos_beta = ln * 2.0 * nv - lv;
+    if(cos_beta < 0.0){
+        cos_beta = 0.0;
+    }
+
+    cos_beta_pow = pow(cos_beta, 20.0);
+
+    h = (s * kd * cos_alpha + ke);
+    c0 = color * h;
+    c1.set_color(255,255,255); // 環境光
+    c1 = c1 * (s * ks * cos_beta_pow);
+    c = c0 + c1;
+    return c;
+};

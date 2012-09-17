@@ -24,7 +24,9 @@ public:
   int face;
 
   omp_lock_t lock_num;
+  omp_lock_t lock_pnum;
   unsigned long long int num;
+  unsigned long long int pnum;
   // コンストラクタ
   Scene();
   ~Scene();
@@ -35,6 +37,12 @@ public:
   void qsort(int s, int e, int f);
   void set_bgcolor(UINT8 r, UINT8 g, UINT8 b);
   void add_light(Light* m);
+  Color intersect(Vector3 v);
+  Color shading(Vector3 view_vector,
+                Vector3 light,
+                Vector3 n,
+                Color color,
+                double s);
   list<Polygon3*> tree_traversal(Vector3 view_vector);
   void load_ply(string filename);
   static list<string> split(string str, string delim);

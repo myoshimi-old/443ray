@@ -15,6 +15,7 @@ public:
   void add(Vector3 p);
   void show();
   AABB3* clone();
+  Vector3 get_gravity_center();
   bool intersect(Vector3 viewpoint, Vector3 view_vector);
   static bool cmpx(AABB3* a, AABB3* b);
 };
