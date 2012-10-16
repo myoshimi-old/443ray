@@ -22,13 +22,15 @@ using namespace std;
 double get_dtime(void){
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return ((double)(tv.tv_sec) + (double)(tv.tv_usec) * 0.001 * 0.001);
+    return ((double)(tv.tv_sec)
+            + (double)(tv.tv_usec) * 0.001 * 0.001);
 }
 
 int main(int argc, char** argv){
     int x, y;
     Screen screen;
     Scene scene;
+    Scene* scene1;
 
     ifstream ifs;
     string s;
@@ -52,7 +54,7 @@ int main(int argc, char** argv){
     cout << "Loading PLY File..." << endl;
     d0 = get_dtime();
     scene.load_ply(argv[3]);
-
+    //exit(0);
     // 縦横比
     rw = 0.16;
     rh = rw * screen.height / screen.width;
@@ -87,6 +89,8 @@ int main(int argc, char** argv){
     d1 = get_dtime();
     scene.build_bounding_box();
 
+    scene1 = &scene;
+
     cout << "Intersect..." << endl;
     d2 = get_dtime();
 
@@ -96,7 +100,7 @@ int main(int argc, char** argv){
     for(y=0;y<(int)screen.height;y++){
         for(x=0;x<(int)screen.width;x++){
             // cout << "(" << x << ", " << y << ")" << endl;
-            screen.pixel[sindex].set_color(scene.intersect(view[sindex]));
+            screen.pixel[sindex].set_color(scene1->intersect(view[sindex]));
         }
     }
 
