@@ -10,4 +10,6 @@
 #define MIN3(x,y,z) (MIN2(x, MIN2(y, z)))
 #define MAX3(x,y,z) (MAX2(x, MAX2(y, z)))
 
+//#define BVH_LIST
+
 #endif

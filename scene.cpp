@@ -62,21 +62,21 @@ void Scene::set_bgcolor(UINT8 r, UINT8 g, UINT8 b){
 };
 
 /*
-list<string> Scene::split(string str, string delim){
-    list<string> result;
-    int cutAt;
+  list<string> Scene::split(string str, string delim){
+  list<string> result;
+  int cutAt;
 
-    while((cutAt = str.find_first_of(delim)) != (int)str.npos){
-        if(cutAt>0){
-            result.push_back(str.substr(0, cutAt));
-        }
-        str = str.substr(cutAt+1);
-    }
-    if(str.length() > 0){
-        result.push_back(str);
-    }
-    return result;
-}
+  while((cutAt = str.find_first_of(delim)) != (int)str.npos){
+  if(cutAt>0){
+  result.push_back(str.substr(0, cutAt));
+  }
+  str = str.substr(cutAt+1);
+  }
+  if(str.length() > 0){
+  result.push_back(str);
+  }
+  return result;
+  }
 */
 
 vector<string> Scene::split(string str, string delim){
@@ -111,6 +111,68 @@ int Scene::split2(vector<string> *svector, char* str, string delim){
     }
 
     return i;
+}
+
+list<Polygon3*> Scene::tree_traversal2(Vector3 view_vector){
+    int tnum;
+    int i, idx;
+    list<int> traverse_list; // トラバース対象ノードのリスト
+    list<Polygon3*> model_list; // 交差判定対象モデルのリスト
+
+    tnum = 0;
+
+    traverse_list.clear();
+    model_list.clear();
+
+    tnum++;
+    if(btree[0].intersect(viewpoint, view_vector)){
+        traverse_list.push_back((int)0);
+    }
+    
+    // cout << "hage " << (int)btree.size() << endl;
+    
+    while(traverse_list.size() != 0){
+        idx = traverse_list.front();
+        traverse_list.pop_front();
+        /*
+        cout << "btree[" << idx << "] : "
+             << btree[idx].model.size() << " : "
+             << traverse_list.size()
+             << endl;
+             */
+
+        if(btree[idx].model.size() == 0){
+            tnum += child_num;
+            for(i=1;i<=child_num;i++){
+                if(btree[idx*child_num+i].intersect(viewpoint, view_vector)){
+                    // cout << "  Push : " << idx*child_num+i << endl;
+                    traverse_list.push_back(idx*child_num+i);
+                }
+            }
+        }
+        else{
+            for(i=0;i<(int)btree[idx].model.size();i++){
+                //tnum++;
+                /*
+                if(btree[idx].model[i]->intersect(viewpoint, view_vector)){
+                    model_list.push_back(btree[idx].model[i]);
+                }
+                */
+                model_list.push_back(btree[idx].model[i]);
+            }
+        }
+    }
+
+    // cout << "hoge" << endl;
+#ifdef _OPENMP
+    omp_set_lock(&lock_num);
+    num += tnum;
+    omp_unset_lock(&lock_num);
+#else
+    num += tnum;
+#endif
+    
+    return model_list;
 }
 
 list<Polygon3*> Scene::tree_traversal(Vector3 view_vector){
@@ -276,7 +338,6 @@ void Scene::qsort(int s, int e, int f){
     qsort(k+1, e, f);
 }
 
-
 AABB3* Scene::division(int s, int e, int f){
     int i, d, n;
     AABB3* ret;
@@ -318,22 +379,150 @@ void Scene::build_bounding_box(){
     int i;
     AABB3 v;
     vector<AABB3*> ba;
+    
+    bvolume.reserve(model.size());
+    
+    // 最も小さなバウンディングボックスを生成する(ノード付き)
+#ifdef _OPENMP
+#pragma omp parallel for private(i)
+#endif
+    for(i=0;i<(int)model.size();i++){
+        bvolume[i] = new AABB3();
+        bvolume[i]->empty();
+        bvolume[i]->add(model[i]->get_max());
+        bvolume[i]->add(model[i]->get_min());
+        bvolume[i]->node  = model[i];
+        bvolume[i]->right = NULL;
+        bvolume[i]->left  = NULL;
+    }
+    
+    bbtree = division(0, (int)model.size(), 0);
+};
+
+void Scene::building_tree(int s, int e, int f, int idx){
+    int i;
+    int num;
+
+    num = e - s;
+
+    /*
+    cout << "Sort["<< idx << "]"
+         << "[" << s << "," << e << ") at " << f << " : " << num << endl;
+         */
+
+    btree[idx].empty();
+    
+    qsort(s, e, f); // bvolume[i]のsからe-1までをフラグfでソート
+    for(i=s;i<e;i++){
+        btree[idx].add(bvolume[i]->max);
+        btree[idx].add(bvolume[i]->min);
+    }
+    //btree[idx].max.show();
+    //btree[idx].min.show();
+
+    if(num > child_num){
+        /*
+        building_tree(s,      (s+e)/2, f+1, idx*2+1);
+        building_tree((s+e)/2, e,      f+1, idx*2+2);
+        */
+        /*
+        cout << " Dvidison : " << s << ", "
+             << s+num*1/4 << ", " << s+num*2/4 << ", "
+             << s+num*3/4 << ", " << e << endl;
+        building_tree(s,         s+num*1/4, f+1, idx*4+1);
+        building_tree(s+num*1/4, s+num*2/4, f+1, idx*4+2);
+        building_tree(s+num*2/4, s+num*3/4, f+1, idx*4+3);
+        building_tree(s+num*3/4, e,         f+1, idx*4+4);
+        */
+        for(i=0;i<child_num;i++){
+            if(i+1 != child_num){
+                building_tree(s+num*i/child_num,
+                              s+num*(i+1)/child_num,
+                              f+1,
+                              idx*child_num+(i+1));
+            }
+            else{
+                building_tree(s+num*i/child_num,
+                              e,
+                              f+1,
+                              idx*child_num+(i+1));
+            }
+        }
+    }
+    else{
+        btree[idx].model.resize(num);
+        // cout << "  Reserve " << btree[idx].model.size() << " nodes." << endl;
+        for(i=0;i<num;i++){
+            btree[idx].model[i] = bvolume[s+i]->node;
+            /*
+            cout << "btree[" << idx << "].model[" << i << "]"
+                 << ": bvolume[" << s+i << "]" << endl;
+                 */
+        }
+    }
+}
+
+void Scene::build_bounding_box2(){
+    int i;
+    AABB3 v;
+    vector<AABB3*> ba;
+
+    int depth;
+    int node_num;
 
     bvolume.reserve(model.size());
 
     // 最も小さなバウンディングボックスを生成する(ノード付き)
+#ifdef _OPENMP
+#pragma omp parallel for private(i)
+#endif
     for(i=0;i<(int)model.size();i++){
-        v.empty();
-        v.add(model[i]->get_max());
-        v.add(model[i]->get_min());
-        v.node  = model[i];
-        v.right = NULL;
-        v.left  = NULL;
-        bvolume[i] = v.clone();
+        bvolume[i] = new AABB3();
+        bvolume[i]->empty();
+        bvolume[i]->add(model[i]->get_max());
+        bvolume[i]->add(model[i]->get_min());
+        bvolume[i]->node  = model[i];
+        bvolume[i]->right = NULL;
+        bvolume[i]->left  = NULL;
     }
 
-    bbtree = division(0, (int)model.size(), 0);
+    child_num = 32;
+    
+    depth = log2(model.size()) / log2(child_num);
+    /*
+      cout << "Model Size: " << model.size() << endl;
+      cout << "Tree Depth: " << depth
+      << " (" << (int)pow((double)child_num, depth)<< ")" << endl;
+
+      cout << "Tree Size: " <<  (int)pow((double)child_num, depth-1)
+      << " + " << model.size() << endl;
+    */
+
+    //node_num = (int)pow((REAL)child_num, depth + 1) - 1;
+    node_num = 0;
+    for(i=0;i<=depth;i++){
+        // cout << i << " : " << node_num << " : ";
+        node_num += (int)pow((REAL)child_num, i);
+        // cout << (int)pow((REAL)child_num, i) << endl;
+    }
+
+    cout << "Tree Node Number: " << node_num
+         << " (" << child_num << "**" << depth << ")"<< endl;
+    
+    btree.resize(node_num);
+    
+    int s, e, f;
+    int idx;
+
+    f = 0; idx = 0; s = 0; e = model.size();
+    building_tree(s, e, f, idx);
+
+    cout << "end of building_tree" << endl;
+    
+    // bbtree = division(0, (int)model.size(), 0);
 };
+
+
 
 void Scene::load_ply(string filename){
     int elnum;
@@ -396,11 +585,11 @@ void Scene::load_ply(string filename){
                 p3 = atoi(svector[3].c_str());
                 model[face-face_num] = new Polygon3(//new Color(rand()%256,rand()%256,rand()%256),
                                                     //new Color(255,255,0),
-                                                    new Color(255,255,255),
-                                                    // new Color(rand()%256,rand()%256,rand()%256),
-                                                    &vertex_list[p1],
-                                                    &vertex_list[p2],
-                                                    &vertex_list[p3]);
+                    new Color(255,255,255),
+                    // new Color(rand()%256,rand()%256,rand()%256),
+                    &vertex_list[p1],
+                    &vertex_list[p2],
+                    &vertex_list[p3]);
                 face_num--;
             }
         }
@@ -410,73 +599,71 @@ void Scene::load_ply(string filename){
 }
 
 /*
-void Scene::load_ply(string filename){
-    ifstream ifs;
-    string s;
-    vector<string> slist;
-    int header_flag = 1;
-    REAL vx, vy, vz;
-    Vector3 v;
-    int p1, p2, p3;
-    vector<Vector3> vertex_list;
-    int vertex_num, face_num;
+  void Scene::load_ply(string filename){
+  ifstream ifs;
+  string s;
+  vector<string> slist;
+  int header_flag = 1;
+  REAL vx, vy, vz;
+  Vector3 v;
+  int p1, p2, p3;
+  vector<Vector3> vertex_list;
+  int vertex_num, face_num;
 
-    face   = 0;
-    vertex = 0;
+  face   = 0;
+  vertex = 0;
 
-    ifs.open(filename.c_str());
-    while(getline(ifs, s)){
-        slist = Scene::split(s, string(" "));
+  ifs.open(filename.c_str());
+  while(getline(ifs, s)){
+  slist = Scene::split(s, string(" "));
 
-        if(header_flag == 1){
-            if(slist[0] == "comment"){
-                // cout << "cmt" << endl;
-            }
-            else if(slist[0] == "element"){
-                if(slist[1] == "vertex"){
-                    vertex = atoi(slist[2].c_str());
-                    vertex_num = vertex;
-                }
-                else if(slist[1] == "face"){
-                    face = atoi(slist[2].c_str());
-                    face_num = face;
-                }
-            }
-            else if(slist[0] == "end_header"){
-                header_flag = 2;
-            }
-        }
-        else if(header_flag == 2){
-            if(vertex_num != 0){
-                vertex_num--;
-                vx = (REAL)atof(slist[0].c_str());
-                vy = (REAL)atof(slist[1].c_str());
-                vz = (REAL)atof(slist[2].c_str());
-                v.set_vector(vx, vy, vz);
-                vertex_list.push_back(v);
-            }
-            else if(face_num != 0){
-                face_num--;
-                p1 = atoi(slist[1].c_str());
-                p2 = atoi(slist[2].c_str());
-                p3 = atoi(slist[3].c_str());
+  if(header_flag == 1){
+  if(slist[0] == "comment"){
+  // cout << "cmt" << endl;
+  }
+  else if(slist[0] == "element"){
+  if(slist[1] == "vertex"){
+  vertex = atoi(slist[2].c_str());
+  vertex_num = vertex;
+  }
+  else if(slist[1] == "face"){
+  face = atoi(slist[2].c_str());
+  face_num = face;
+  }
+  }
+  else if(slist[0] == "end_header"){
+  header_flag = 2;
+  }
+  }
+  else if(header_flag == 2){
+  if(vertex_num != 0){
+  vertex_num--;
+  vx = (REAL)atof(slist[0].c_str());
+  vy = (REAL)atof(slist[1].c_str());
+  vz = (REAL)atof(slist[2].c_str());
+  v.set_vector(vx, vy, vz);
+  vertex_list.push_back(v);
+  }
+  else if(face_num != 0){
+  face_num--;
+  p1 = atoi(slist[1].c_str());
+  p2 = atoi(slist[2].c_str());
+  p3 = atoi(slist[3].c_str());
 
-                model.push_back(new Polygon3(//new Color(rand()%256,rand()%256,rand()%256),
-                                    //new Color(255,255,0),
-                                    new Color(255,255,255),
-                                    // new Color(rand()%256,rand()%256,rand()%256),
-                                    &vertex_list[p1],
-                                    &vertex_list[p2],
-                                    &vertex_list[p3]));
-            }
-        }
-    }
-    //  cout << vertex << face << endl;
-    ifs.close();
-}
+  model.push_back(new Polygon3(//new Color(rand()%256,rand()%256,rand()%256),
+  //new Color(255,255,0),
+  new Color(255,255,255),
+  // new Color(rand()%256,rand()%256,rand()%256),
+  &vertex_list[p1],
+  &vertex_list[p2],
+  &vertex_list[p3]));
+  }
+  }
+  }
+  //  cout << vertex << face << endl;
+  ifs.close();
+  }
 */
-
-
 
 
 // view : スクリーンの画素位置へのベクトル
@@ -505,7 +692,11 @@ Color Scene::intersect(Vector3 view){
     // tree[0].node.x
     xlist.empty();
 
+#ifdef BVH_LIST
     mlist = tree_traversal(view_vector);
+#else
+    mlist = tree_traversal2(view_vector);
+#endif
 
     // cout << "Polygon3 intersect : " << (int)mlist.size() << endl;
     // 交差判定
@@ -526,15 +717,8 @@ Color Scene::intersect(Vector3 view){
 #else
     pnum+=(int)mlist.size();
 #endif
-    /*
-      for(m = 0; m<(int)scene->model.size(); m++){
-      t = scene->model[m]->intersect(scene->viewpoint, view_vector);
-      if(t < HUGE_VAL){
-      xlist.push_back(pair<int, double>(m, t));
-      }
-      }
-    */
 
+    
     if(xlist.size() == 0){
         c.set_color(bgcolor.red,
                     bgcolor.green,

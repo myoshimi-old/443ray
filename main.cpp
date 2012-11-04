@@ -87,7 +87,12 @@ int main(int argc, char** argv){
 
     cout << "Building BoundingBox..." << endl;
     d1 = get_dtime();
+
+#ifdef BVH_LIST
     scene.build_bounding_box();
+#else
+    scene.build_bounding_box2();
+#endif
 
     scene1 = &scene;
 
