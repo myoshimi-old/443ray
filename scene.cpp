@@ -244,26 +244,41 @@ int Scene::partition(int s, int e, int f){
     REAL pivot;
     AABB3* t;
     Vector3 v1, v2;
+    REAL a, b, c;
 
     if(f % 3 == 0){
-        //pivot = bvolume[(e-s)/2+s]->get_gravity_center().x;
-        pivot = (bvolume[(e-s)/2+s]->get_gravity_center().x
-                 + bvolume[s]->get_gravity_center().x
-                 + bvolume[e-1]->get_gravity_center().x) / 3.0;
+        a = bvolume[(e-s)/2+s]->get_gravity_center().x;
+        b = bvolume[s]->get_gravity_center().x;
+        c = bvolume[e-1]->get_gravity_center().x;
     }
     else if(f % 3 == 1){
         // pivot = bvolume[(e-s)/2+s]->get_gravity_center().y;
-        pivot = (bvolume[(e-s)/2+s]->get_gravity_center().y
-                 + bvolume[s]->get_gravity_center().y
-                 + bvolume[e-1]->get_gravity_center().y) / 3.0;
+        a = bvolume[(e-s)/2+s]->get_gravity_center().y;
+        b = bvolume[s]->get_gravity_center().y;
+        c = bvolume[e-1]->get_gravity_center().y;
     }
     else{
-        // pivot = bvolume[(e-s)/2+s]->get_gravity_center().z;
-        pivot = (bvolume[(e-s)/2+s]->get_gravity_center().z
-                 + bvolume[s]->get_gravity_center().z
-                 + bvolume[e-1]->get_gravity_center().z) / 3.0;
+        a = bvolume[(e-s)/2+s]->get_gravity_center().z;
+        b = bvolume[s]->get_gravity_center().z;
+        c = bvolume[e-1]->get_gravity_center().z;
     }
 
+    if(a < b){
+        if(c < a) pivot = a;
+        else // a < c
+            if(b < c) pivot = b;
+            else      pivot = c;
+    }
+    else{ // b < a
+        if(c < b) pivot = b;
+        else // b < c
+            if(a < c) pivot = a;
+            else      pivot = c;
+    }
+
+
+    //pivot = (a + b + c) / 3.0;
+    
     left  = s;
     right = e - 1;
     /*
@@ -486,7 +501,7 @@ void Scene::build_bounding_box2(){
         bvolume[i]->left  = NULL;
     }
 
-    child_num = 32;
+    child_num = 2;
     
     depth = log2(model.size()) / log2(child_num);
     /*
