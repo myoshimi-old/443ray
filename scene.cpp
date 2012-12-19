@@ -290,29 +290,35 @@ int Scene::partition(int s, int e, int f){
 
     while(left < right){
         if(f % 3 == 0){
-            while(left < e-1 && bvolume[left]->get_gravity_center().x < pivot)
+            while(left < e-1 &&
+                  bvolume[left]->get_gravity_center().x < pivot)
                 left++;
         }
         else if(f % 3 == 1){
-            while(left < e-1 && bvolume[left]->get_gravity_center().y < pivot)
+            while(left < e-1 &&
+                  bvolume[left]->get_gravity_center().y < pivot)
                 left++;
         }
         else{
-            while(left < e-1 && bvolume[left]->get_gravity_center().z < pivot)
+            while(left < e-1 &&
+                  bvolume[left]->get_gravity_center().z < pivot)
                 left++;
         }
 
 
         if(f % 3 == 0){
-            while(right >= s+1 && bvolume[right]->get_gravity_center().x >= pivot)
+            while(right >= s+1 &&
+                  bvolume[right]->get_gravity_center().x >= pivot)
                 right--;
         }
         else if(f % 3 == 1){
-            while(right >= s+1 && bvolume[right]->get_gravity_center().y >= pivot)
+            while(right >= s+1 &&
+                  bvolume[right]->get_gravity_center().y >= pivot)
                 right--;
         }
         else{
-            while(right >= s+1 && bvolume[right]->get_gravity_center().z >= pivot)
+            while(right >= s+1 &&
+                  bvolume[right]->get_gravity_center().z >= pivot)
                 right--;
         }
 
@@ -612,6 +618,117 @@ void Scene::load_ply(string filename){
 
     fclose(fp);
 }
+
+char* Scene::getValue(char* src, const char* key){
+    int i;
+    char *ps, *pe;
+    char *val;
+
+    ps = strstr(src, key);
+    if(ps == NULL){
+    }
+    ps += strlen(key);
+    pe = strchr(ps, (char)0x0D);
+
+    val = (char*)malloc(sizeof(char)*(pe-ps));
+
+    //printf("len: %d\n", pe - ps);
+    for(i=0;i<(pe-ps);i++){
+        val[i] = ps[i];
+    }
+
+    return val;
+}
+
+void Scene::convertEndian(char* array, int size){
+    char tmp;
+    char *head, *tail;
+
+    head = array;
+    tail = array + size - 1;
+
+    while(head < tail){
+        tmp   = *head;
+        *head = *tail;
+        *tail = tmp;
+        head++;
+        tail--;
+    }
+}
+
+void Scene::load_binary_ply(string filename){
+    int i;
+    char *c;
+    int file_size;
+    ifstream ifs;
+    char *header, *body;
+    int unit_size;
+    vector<Vector3> vertex_list;
+    char *head, *p;
+    
+    ifs.open(filename.c_str(), ios::in | ios::binary);
+    if(ifs.fail()){
+        cerr << "File do not exist." << endl;
+        exit(1);
+    }
+    
+    ifs.seekg(0, ios::end);
+    file_size = ifs.tellg();
+    ifs.seekg(0, ios::beg);
+    
+    c = (char*)malloc(sizeof(char)*file_size);
+    ifs.read((char*)c, sizeof(char)*file_size);
+    
+    header = c;
+    p = strstr(c, "end_header\r");
+    body = p + strlen("end_header\r");
+    //ifs.close();
+
+    
+    vertex = atoi(getValue(header, "element vertex "));
+    //printf("vertex_num : %d\n", vertex_num);
+    face = atoi(getValue(header, "element face "));
+    //printf("face_num   : %d\n", face_num);
+    
+    vertex_list.resize(vertex);
+    model.resize(face);
+    
+    
+    head = body;
+    unit_size = sizeof(float) * 3;
+    for(i=0;i<vertex;i++){
+        convertEndian(body+unit_size*i+0, sizeof(float));
+        convertEndian(body+unit_size*i+4, sizeof(float));
+        convertEndian(body+unit_size*i+8, sizeof(float));
+        /*
+        printf("%8.6f ", *(float*)(body+unit_size*i+0));
+        printf("%8.6f ", *(float*)(body+unit_size*i+4));
+        printf("%8.6f\n", *(float*)(body+unit_size*i+8));
+        */
+        vertex_list[i].set_vector(*(float*)(body+unit_size*i+0),
+                                  *(float*)(body+unit_size*i+4),
+                                  *(float*)(body+unit_size*i+8));
+    }
+    
+    head = body + sizeof(float) * vertex * 3;
+    unit_size = sizeof(unsigned char)+3*sizeof(unsigned int);    
+    for(i=0;i<face;i++){
+        // printf("%02X ", *(unsigned char*)head);
+        convertEndian((head+unit_size*i+1), sizeof(unsigned int));
+        convertEndian((head+unit_size*i+5), sizeof(unsigned int));
+        convertEndian((head+unit_size*i+9), sizeof(unsigned int));
+        /*
+        printf("%08X ", *(unsigned int*)(head+unit_size*i+1));
+        printf("%08X ", *(unsigned int*)(head+unit_size*i+5));
+        printf("%08X\n", *(unsigned int*)(head+unit_size*i+9));
+        */
+        model[i] = new Polygon3(new Color(255,255,255),
+                                &vertex_list[*(unsigned int*)(head+unit_size*i+1)],
+                                &vertex_list[*(unsigned int*)(head+unit_size*i+5)],
+                                &vertex_list[*(unsigned int*)(head+unit_size*i+9)]);
+    }
+}
+
 
 /*
   void Scene::load_ply(string filename){

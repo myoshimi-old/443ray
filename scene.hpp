@@ -49,9 +49,11 @@ public:
     list<Polygon3*> tree_traversal(Vector3 view_vector);
     list<Polygon3*> tree_traversal2(Vector3 view_vector);
     
-
     void building_tree(int s, int e, int f, int idx);
     void load_ply(string filename);
+    void load_binary_ply(string filename);
+    char* getValue(char* src, const char* key);
+    void convertEndian(char* array, int size);
     static vector<string> split(string str, string delim);
     static int split2(vector<string> *svector, char* str, string delim);
 };

@@ -49,21 +49,27 @@ int main(int argc, char** argv){
     screen.set_screen(atoi(argv[1]), atoi(argv[2]));
     scene.set_bgcolor(0, 0, 0);
     scene.add_light(new Light(new Vector3(60.0, 30.0, 60.0))); // 照明位置
+    //scene.add_light(new Light(new Vector3(1000.0, 1000.0, 1000.0))); // 照明位置Lucy
 
 
     cout << "Loading PLY File..." << endl;
     d0 = get_dtime();
-    scene.load_ply(argv[3]);
+    //scene.load_ply(argv[3]);
+    scene.load_binary_ply(argv[3]);
     //exit(0);
     // 縦横比
     rw = 0.16;
+    //rw = 1500.0; // Lucy
     rh = rw * screen.height / screen.width;
-    sl.set_vector(rw, rh, 0.6); // スクリーン位置
+    sl.set_vector(rw, rh, -0.8); // スクリーン位置budda
+    //sl.set_vector(rw, rh, 1500.0); // スクリーン位置Lucy
     // ウサギ
     //scene.viewpoint.set_vector(-0.015, 0.104, 0.80); // 視点位置
     // scene.viewpoint.set_vector(-0.02, 0.145, 0.40); // 視点位置
     // 仏像
     scene.viewpoint.set_vector(-0.015, 0.140, 1.10); // 視点位置
+    
+    // scene.viewpoint.set_vector(700.0, 0.0, 2100.0); // 視点位置Lucy
 
     // view_{xyz}はスクリーンのワールド座標
     vector<Vector3> view;
@@ -92,9 +98,12 @@ int main(int argc, char** argv){
     scene.build_bounding_box();
 #else
     scene.build_bounding_box2();
+    scene.btree[0].max.show();
+    scene.btree[0].min.show();
 #endif
 
     scene1 = &scene;
+
 
     cout << "Intersect..." << endl;
     d2 = get_dtime();
